@@ -5,8 +5,49 @@
 #-Money spent is saved as a negative value, while money received is saved as a positive value.
 
 BANKFILE="$HOME/.bank.csv"
-HEADER="date time,value,transaction type"
-DEFAULT_TRANSACTION_TYPE="basic expenses"
+HEADER="date time,amount,transaction type"
+DEFAULT_EXPENSE="basic expenses"
+DEFAULT_RECEIVE="paycheck"
+
+logtransaction()
+{
+	[ ! "$1" ] && echo "ERROR: Amount not informed" && return
+	[ ! "$2" ] && echo "ERROR: Transaction type not informed" && return
+
+	DATE=$(date "+%Y-%m-%d %H:%M")
+	AMOUNT="$1"; shift
+	TRANSACTION_TYPE="$1"; shift
+
+	echo "$DATE,$AMOUNT,$TRANSACTION_TYPE" >> $BANKFILE
+}
+
+logmoneyspent()
+{
+	[ ! "$1" ] && echo "ERROR: Amount not informed" && return
+
+	TRANSACTION_TYPE="$DEFAULT_EXPENSE"
+	AMOUNT="$1"; shift
+	#make sure it's a negative
+	[ "${AMOUNT:0:1}" = '-' ] || AMOUNT="-$AMOUNT"
+
+	[ "$2" ] && TRANSACTION_TYPE="$2" && shift
+
+	logtransaction "$AMOUNT" "$TRANSACTION_TYPE"
+}
+
+logmoneyreceived()
+{
+	[ ! "$1" ] && echo "ERROR: Amount not informed" && return
+
+	TRANSACTION_TYPE="$DEFAULT_RECEIVE"
+	AMOUNT="$1"; shift
+	#make sure it's a positive
+	[ "${AMOUNT:0:1}" = '-' ] && AMOUNT="${AMOUNT:1}"
+
+	[ "$2" ] && TRANSACTION_TYPE="$2" && shift
+
+	logtransaction "$AMOUNT" "$TRANSACTION_TYPE"
+}
 
 showbankfile()
 {
