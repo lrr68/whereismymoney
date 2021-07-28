@@ -30,7 +30,7 @@ logmoneyspent()
 	#make sure it's a negative
 	[ "${AMOUNT:0:1}" = '-' ] || AMOUNT="-$AMOUNT"
 
-	[ "$2" ] && TRANSACTION_TYPE="$2" && shift
+	[ "$1" ] && TRANSACTION_TYPE="$1" && shift
 
 	logtransaction "$AMOUNT" "$TRANSACTION_TYPE"
 }
