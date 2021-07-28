@@ -52,17 +52,37 @@ logmoneyreceived()
 
 getbalanceint()
 {
-	EXPENSES=$(awk -F',' 'NR>1{print $2}' $BANKFILE)
-	for expense in $EXPENSES
+	TOTAL=0
+	answer=""
+	OLDIFS=$IFS
+	IFS=$'\n'
+
+	for expense in $(tail -n +2 $BANKFILE)
 	do
-		echo $expense
+		echo "Count $expense? [Y/n]"
+		read answer
+
+		[ "$answer" = 'n' ] &&
+			continue
+
+		amount=${expense%,*}
+		amount=${amount##*,}
+
+		TOTAL=$(echo $TOTAL $amount | awk '{print $1 + $2}')
+		echo "total so far: $CURRENCY$TOTAL"
 	done
+	IFS=$OLDIFS
+
+	if [ "${TOTAL%.*}" -lt 0 ]
+	then
+		echo "You have a debt of $CURRENCY$TOTAL"
+	else
+		echo "You have $CURRENCY$TOTAL"
+	fi
 }
 
 getbalance()
 {
-	[ "$1" = 'i' ] && getbalanceint && return
-
 	TOTAL=$(awk -F',' 'NR>1 {total+=$2;}END{print total;}' $BANKFILE)
 
 	if [ "${TOTAL%.*}" -lt 0 ]
@@ -76,6 +96,7 @@ getbalance()
 showbankfile()
 {
 	column -s',' -t < $BANKFILE
+	getbalance
 }
 
 #RUNNING
@@ -84,7 +105,12 @@ showbankfile()
 
 case "$1" in
 	balance) shift
-		getbalance "$1"
+		if [ "$1" = 'i' ]
+		then
+			getbalanceint
+		else
+			getbalance
+		fi
 		;;
 	spend) shift
 		logmoneyspent "$1" "$2"
