@@ -8,6 +8,7 @@ BANKFILE="$HOME/.bank.csv"
 HEADER="date time,amount,transaction type"
 DEFAULT_EXPENSE="basic expenses"
 DEFAULT_RECEIVE="paycheck"
+CURRENCY="R$"
 
 logtransaction()
 {
@@ -44,9 +45,32 @@ logmoneyreceived()
 	#make sure it's a positive
 	[ "${AMOUNT:0:1}" = '-' ] && AMOUNT="${AMOUNT:1}"
 
-	[ "$2" ] && TRANSACTION_TYPE="$2" && shift
+	[ "$1" ] && TRANSACTION_TYPE="$1" && shift
 
 	logtransaction "$AMOUNT" "$TRANSACTION_TYPE"
+}
+
+getbalanceint()
+{
+	EXPENSES=$(awk -F',' 'NR>1{print $2}' $BANKFILE)
+	for expense in $EXPENSES
+	do
+		echo $expense
+	done
+}
+
+getbalance()
+{
+	[ "$1" = 'i' ] && getbalanceint && return
+
+	TOTAL=$(awk -F',' 'NR>1 {total+=$2;}END{print total;}' $BANKFILE)
+
+	if [ "${TOTAL%.*}" -lt 0 ]
+	then
+		echo "You have a debt of $CURRENCY$TOTAL"
+	else
+		echo "You have $CURRENCY$TOTAL"
+	fi
 }
 
 showbankfile()
@@ -59,20 +83,24 @@ showbankfile()
 	echo "$HEADER" > $BANKFILE
 
 case "$1" in
-	spent) shift
-		logmoneyspent $1
+	balance) shift
+		getbalance "$1"
 		;;
-	received) shift
-		logmoneyreceived $1
+	spend) shift
+		logmoneyspent "$1" "$2"
 		;;
-	show)
+	receive) shift
+		logmoneyreceived "$1" "$2"
+		;;
+	show) shift
 		showbankfile
 		;;
 	*)
 		echo "usage: ${0##*/} ( command )"
 		echo "commands:"
-		echo "		spent (number) [ type ]: Register an expense of number and type (if informed)"
-		echo "		received (number) [ type ]: Register you received number and type (if informed)"
+		echo "		balance [ i ]: Get current balance. if i is passed, select which transactions to count."
+		echo "		spend (number) [ type ]: Register an expense of number and type (if informed)"
+		echo "		receive (number) [ type ]: Register you received number and type (if informed)"
 		echo "		show: Shows the bankfile"
 		;;
 esac
