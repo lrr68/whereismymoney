@@ -52,10 +52,13 @@ fetchemailtransactions()
 				elif [ "${line%%:*}" = "date.received" ]
 				then
 					#read until date and did not get command, something is wrong with the email
-					echo "${0##*/} ERROR:" >> "$HOME/.${0##*/}.log"
-					echo "    Command not found in email" >> "$HOME/.${0##*/}.log"
-					echo "    BODY: $BODY" >> "$HOME/.${0##*/}.log"
-					echo "====Please do this one manually" >> "$HOME/.${0##*/}.log"
+					{
+						echo "${0##*/} ERROR:"
+						echo "    Command not found in email"
+						echo "    BODY: $BODY"
+						echo "====Please do this one manually"
+					} >> "$HOME/.${0##*/}.log"
+
 					STATE=0
 					BODY=""
 				fi
@@ -78,7 +81,7 @@ fetchemailtransactions()
 	done
 	IFS="$OLDIFS"
 
-	[ -a "$HOME/.${0##*/}.log" ] &&
+	[ -e "$HOME/.${0##*/}.log" ] &&
 		sed 's/|/\n    /g' < "$HOME/.${0##*/}.log" > "$HOME/.${0##*/}.log.aux" &&
 		mv "$HOME/.${0##*/}.log.aux" "$HOME/.${0##*/}.log" &&
 		notify-send "${0##*/} ERROR" "There were errors processing email logged transactions. See $HOME/.${0##*/}.log"
@@ -92,7 +95,7 @@ logtransaction()
 	AMOUNT="$1"; shift
 	TRANSACTION_TYPE="$1"; shift
 
-	echo "$DATE,$AMOUNT,$TRANSACTION_TYPE" >> $BANKFILE
+	echo "$DATE,$AMOUNT,$TRANSACTION_TYPE" >> "$BANKFILE"
 }
 
 logmoneyspent()
@@ -102,7 +105,7 @@ logmoneyspent()
 	TRANSACTION_TYPE="$DEFAULT_EXPENSE"
 	AMOUNT="$1"; shift
 	#make sure it's a negative
-	[ "${AMOUNT:0:1}" = '-' ] || AMOUNT="-$AMOUNT"
+	AMOUNT="-${AMOUNT#-}"
 
 	[ "$1" ] && TRANSACTION_TYPE="$1" && shift
 
@@ -116,7 +119,7 @@ logmoneyreceived()
 	TRANSACTION_TYPE="$DEFAULT_RECEIVE"
 	AMOUNT="$1"; shift
 	#make sure it's a positive
-	[ "${AMOUNT:0:1}" = '-' ] && AMOUNT="${AMOUNT:1}"
+	AMOUNT="${AMOUNT#-}"
 
 	[ "$1" ] && TRANSACTION_TYPE="$1" && shift
 
@@ -130,18 +133,18 @@ getbalanceint()
 	OLDIFS=$IFS
 	IFS=$'\n'
 
-	for expense in $(tail -n +2 $BANKFILE)
+	for expense in $(tail -n +2 "$BANKFILE")
 	do
 		echo "Count $expense? [Y/n]"
-		read answer
+		read -r answer
 
 		[ "$answer" = 'n' ] &&
 			continue
 
-		amount=${expense%,*}
-		amount=${amount##*,}
+		amount="${expense%,*}"
+		amount="${amount##*,}"
 
-		TOTAL=$(echo $TOTAL $amount | awk '{print $1 + $2}')
+		TOTAL=$(echo $TOTAL "$amount" | awk '{print $1 + $2}')
 		echo "total so far: $CURRENCY$TOTAL"
 	done
 	IFS=$OLDIFS
@@ -156,7 +159,7 @@ getbalanceint()
 
 getbalance()
 {
-	TOTAL=$(awk -F',' 'NR>1 {total+=$2;}END{print total;}' $BANKFILE)
+	TOTAL=$(awk -F',' 'NR>1 {total+=$2;}END{print total;}' "$BANKFILE")
 
 	if [ "${TOTAL%.*}" -lt 0 ]
 	then
@@ -168,13 +171,13 @@ getbalance()
 
 showbankfile()
 {
-	column -s',' -t < $BANKFILE
+	column -s',' -t < "$BANKFILE"
 	getbalance
 }
 
 #RUNNING
-[ -a "$BANKFILE" ] ||
-	echo "$HEADER" > $BANKFILE
+[ -e "$BANKFILE" ] ||
+	echo "$HEADER" > "$BANKFILE"
 
 case "$1" in
 	balance) shift
