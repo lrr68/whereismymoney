@@ -24,3 +24,7 @@ The SUBJECT variable should be set to the subject of the emails that you will se
 Each email can contain multiple whereismymoney ```spend``` and ```receive``` commands, each in it's own line.
 Pay attention as the syntax must be correct for the commands to work.
 If no command is detected inside a email this will be logged to ```$HOME/.whereismymoney.log``` and notified via notify-send.
+
+## TODO:
++ Make it more POSIX compliant by removing ```IFS=$'\n'```
++ Use while loops to read files line by line instead of the current clumsy for
