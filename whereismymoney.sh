@@ -22,17 +22,17 @@ fetchemailtransactions()
 	AMOUNT=""
 	TYPE=""
 	BODY=""
+	mailquery="${0##*/}.mailquery"
 
-	OLDIFS="$IFS"
-	IFS=$'\n'
-
+	ssh $EMAIL "doveadm fetch 'body date.received' mailbox inbox unseen SUBJECT $SUBJECT > mailquery &&
+		doveadm flags add '\Seen' mailbox inbox unseen SUBJECT $SUBJECT &&
+		doveadm move Trash mailbox inbox seen SUBJECT $SUBJECT &&
+		cat mailquery" > $mailquery
 	# query the server for unseen emails with subject=$SUBJECT
 	# outputs email body and date.received to a file so line breaks are preserved
 	# marks these emails as seen
 	# cats the file so we get it's contents locally
-	for line in $(ssh $EMAIL "doveadm fetch 'body date.received' mailbox inbox unseen SUBJECT $SUBJECT > mailquery &&
-		doveadm flags add '\Seen' mailbox inbox unseen SUBJECT $SUBJECT &&
-		cat mailquery")
+	while IFS= read -r line || [ -n "$line" ]
 	do
 		case "$STATE" in
 			0) #expect body
@@ -79,8 +79,8 @@ fetchemailtransactions()
 				;;
 		esac
 
-	done
-	IFS="$OLDIFS"
+	done < $mailquery
+	rm $mailquery
 
 	[ -e "$HOME/.${0##*/}.log" ] &&
 		sed 's/|/\n    /g' < "$HOME/.${0##*/}.log" > "$HOME/.${0##*/}.log.aux" &&
