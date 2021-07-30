@@ -47,8 +47,9 @@ fetchemailtransactions()
 					STATE=2
 					CMD="${line%% *}"
 					AMOUNT="${line#* }"
-					AMOUNT="${AMOUNT% *}"
-					TYPE="${line##* }"
+					AMOUNT="${AMOUNT%% *}"
+					TYPE="${line#* }"
+					TYPE="${TYPE#* }"
 				elif [ "${line%%:*}" = "date.received" ]
 				then
 					#read until date and did not get command, something is wrong with the email
