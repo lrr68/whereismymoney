@@ -151,7 +151,7 @@ getbalanceint()
 
 	if [ "${TOTAL%.*}" -lt 0 ]
 	then
-		echo "You have a debt of $CURRENCY$TOTAL"
+		echo "You have a debt of -$CURRENCY${TOTAL#-}"
 	else
 		echo "You have $CURRENCY$TOTAL"
 	fi
@@ -163,7 +163,7 @@ getbalance()
 
 	if [ "${TOTAL%.*}" -lt 0 ]
 	then
-		echo "You have a debt of $CURRENCY$TOTAL"
+		echo "You have a debt of -$CURRENCY${TOTAL#-}"
 	else
 		echo "You have $CURRENCY$TOTAL"
 	fi
