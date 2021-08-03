@@ -4,16 +4,54 @@
 #-Keeps track of how much money you have by logging how much you spent and received.
 #-Money spent is saved as a negative value, while money received is saved as a positive value.
 
-BANKFILE="$HOME/.bank.csv"
+BANKFILE="$HOME/Documents/.bank.csv"
+MONTHLY_TRANSACTIONS_FILE="$HOME/Documents/.monthly_transactions.csv"
 HEADER="date time,amount,transaction type"
+MONTHLY_HEADER="type, amount, description"
 DEFAULT_EXPENSE="basic expenses"
 DEFAULT_RECEIVE="paycheck"
 CURRENCY="R$"
+
 #SUBJECT is used to filter emails that contain commands
 SUBJECT="Whereismymoney"
 #EMAIL is used to ssh to server and fetch remote commands
 EMAIL="sua@mae.com"
+
 DATE=""
+
+addmonthly()
+{
+	[ ! "$1" ] && echo "Inform type" && return
+	TYPE="$1"; shift
+
+	[ ! "$1" ] && echo "Inform value" && return
+	VALUE="$1"; shift
+
+	[ ! "$1" ] && echo "Inform description" && return
+	DESC="$1"; shift
+
+	[ -e $MONTHLY_TRANSACTIONS_FILE ] || echo "$MONTHLY_HEADER" > $MONTHLY_TRANSACTIONS_FILE
+
+	[ ! "$TYPE" = "income" ] && [ ! "$TYPE" = "expense" ] &&
+			echo "Type not reconized. Valid types are 'income' or 'expense'" && return
+
+	echo "$TYPE, $VALUE, $DESC" >> $MONTHLY_TRANSACTIONS_FILE
+}
+
+showmonthly()
+{
+	column -s',' -t < "$MONTHLY_TRANSACTIONS_FILE"
+	showmonthlytotals
+}
+
+showmonthlytotals()
+{
+	TOTAL_IN=$(awk -F',' 'NR>1 && $1 == "income" {total+=$2;}END{print total;}' "$MONTHLY_TRANSACTIONS_FILE")
+	TOTAL_EX=$(awk -F',' 'NR>1 && $1 == "expense" {total+=$2;}END{print total;}' "$MONTHLY_TRANSACTIONS_FILE")
+	[ "$TOTAL_IN" ] && echo "You receive $CURRENCY$TOTAL_IN every month."
+	[ "$TOTAL_EX" ] && echo "You Spend $CURRENCY$TOTAL_EX every month."
+	[ ! "$TOTAL_EX" ] && [ ! "$TOTAL_IN" ] && echo "No Monthly expenses"
+}
 
 fetchemailtransactions()
 {
@@ -24,10 +62,10 @@ fetchemailtransactions()
 	BODY=""
 	mailquery="${0##*/}.mailquery"
 
-	ssh $EMAIL "doveadm fetch 'body date.received' mailbox inbox unseen SUBJECT $SUBJECT > mailquery &&
+	(ssh $EMAIL "doveadm fetch 'body date.received' mailbox inbox unseen SUBJECT $SUBJECT > mailquery &&
 		doveadm flags add '\Seen' mailbox inbox unseen SUBJECT $SUBJECT &&
 		doveadm move Trash mailbox inbox seen SUBJECT $SUBJECT &&
-		cat mailquery" > $mailquery
+		cat mailquery" > $mailquery 2>&1)
 	# query the server for unseen emails with subject=$SUBJECT
 	# outputs email body and date.received to a file so line breaks are preserved
 	# marks these emails as seen
@@ -181,6 +219,9 @@ showbankfile()
 	echo "$HEADER" > "$BANKFILE"
 
 case "$1" in
+	add) shift
+		addmonthly "$1" "$2" "$3"
+		;;
 	balance) shift
 		if [ "$1" = 'i' ]
 		then
@@ -189,27 +230,41 @@ case "$1" in
 			getbalance
 		fi
 		;;
-	spend) shift
-		DATE=$(date "+%Y-%m-%d %H:%M")
-		logmoneyspent "$1" "$2"
+	edit) shift
+		$EDITOR $BANKFILE
+		;;
+	fetch) shift
+		fetchemailtransactions
 		;;
 	receive) shift
 		DATE=$(date "+%Y-%m-%d %H:%M")
 		logmoneyreceived "$1" "$2"
 		;;
-	fetch) shift
-		fetchemailtransactions
-		;;
 	show) shift
 		showbankfile
+		;;
+	showm) shift
+		showmonthly
+		;;
+	showmt) shift
+		showmonthlytotals
+		;;
+	spend) shift
+		DATE=$(date "+%Y-%m-%d %H:%M")
+		logmoneyspent "$1" "$2"
 		;;
 	*)
 		echo "usage: ${0##*/} ( command )"
 		echo "commands:"
+		echo "		add (income/expense) (number) (description): adds a montly expense or income,"
+		echo "			every month it will be put automatically on the csv file."
 		echo "		balance [ i ]: Get current balance. if i is passed, select which transactions to count."
+		echo "		edit: Opens the bankfile with EDITOR"
 		echo "		spend (number) [ type ]: Register an expense of number and type (if informed)"
 		echo "		receive (number) [ type ]: Register you received number and type (if informed)"
 		echo "		fetch: Gets transactions registered remotelly by email"
 		echo "		show: Shows the bankfile"
+		echo "		showm: Shows the monthly expenses file"
+		echo "		showmt: Shows the sum of your monthly expenses and incomes"
 		;;
 esac
