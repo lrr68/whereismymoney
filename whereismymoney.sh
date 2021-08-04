@@ -30,12 +30,12 @@ addmonthly()
 	[ ! "$1" ] && echo "Inform description" && return
 	DESC="$1"; shift
 
-	[ -e $MONTHLY_TRANSACTIONS_FILE ] || echo "$MONTHLY_HEADER" > $MONTHLY_TRANSACTIONS_FILE
+	[ -e "$MONTHLY_TRANSACTIONS_FILE" ] || echo "$MONTHLY_HEADER" > "$MONTHLY_TRANSACTIONS_FILE"
 
 	[ ! "$TYPE" = "income" ] && [ ! "$TYPE" = "expense" ] &&
 			echo "Type not reconized. Valid types are 'income' or 'expense'" && return
 
-	echo "$TYPE, $VALUE, $DESC" >> $MONTHLY_TRANSACTIONS_FILE
+	echo "$TYPE, $VALUE, $DESC" >> "$MONTHLY_TRANSACTIONS_FILE"
 }
 
 showmonthly()
@@ -65,7 +65,7 @@ fetchemailtransactions()
 	(ssh $EMAIL "doveadm fetch 'body date.received' mailbox inbox unseen SUBJECT $SUBJECT > mailquery &&
 		doveadm flags add '\Seen' mailbox inbox unseen SUBJECT $SUBJECT &&
 		doveadm move Trash mailbox inbox seen SUBJECT $SUBJECT &&
-		cat mailquery" > $mailquery 2>&1)
+		cat mailquery" > "$mailquery" 2>&1)
 	# query the server for unseen emails with subject=$SUBJECT
 	# outputs email body and date.received to a file so line breaks are preserved
 	# marks these emails as seen
@@ -117,8 +117,8 @@ fetchemailtransactions()
 				;;
 		esac
 
-	done < $mailquery
-	rm $mailquery
+	done < "$mailquery"
+	rm "$mailquery"
 
 	[ -e "$HOME/.${0##*/}.log" ] &&
 		sed 's/|/\n    /g' < "$HOME/.${0##*/}.log" > "$HOME/.${0##*/}.log.aux" &&
