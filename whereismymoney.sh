@@ -67,6 +67,29 @@ showmonthlytotals()
 	[ ! "$TOTAL_EX" ] && [ ! "$TOTAL_IN" ] && echo "No Monthly expenses"
 }
 
+fetchupdates()
+{
+	fetchmonthlytransactions
+	fetchemailtransactions
+}
+
+fetchmonthlytransactions()
+{
+	DATE=$(date "+%Y-%m-%d %H:%M")
+	cur_month=${DATE%-*}
+	cur_month=${cur_month#*-}
+	last_month=$(tail -n 1 "$BANKFILE")
+	last_month=${last_month%% *}
+	last_month=${last_month%-*}
+	last_month=${last_month#*-}
+	echo $last_month $MONTH
+
+	if [ "$MONTH" -gt "$last_month" ]
+	then
+		echo ""
+	fi
+}
+
 fetchemailtransactions()
 {
 	STATE=0
@@ -212,7 +235,7 @@ case "$1" in
 		"$EDITOR $BANKFILE"
 		;;
 	fetch) shift
-		fetchemailtransactions
+		fetchupdates
 		;;
 	receive) shift
 		DATE=$(date "+%Y-%m-%d %H:%M")
@@ -236,11 +259,10 @@ case "$1" in
 		echo "commands:"
 		echo "		add (income/expense) (number) (description): adds a montly expense or income,"
 		echo "			every month it will be put automatically on the csv file."
-		echo "		balance [ i ]: Get current balance. if i is passed, select which transactions to count."
 		echo "		edit: Opens the bankfile with EDITOR"
 		echo "		spend (number) [ type ]: Register an expense of number and type (if informed)"
 		echo "		receive (number) [ type ]: Register you received number and type (if informed)"
-		echo "		fetch: Gets transactions registered remotelly by email"
+		echo "		fetch: Fetches transactions registered by email and monthly transactions if due"
 		echo "		show: Shows the bankfile"
 		echo "		showm: Shows the monthly expenses file"
 		echo "		showmt: Shows the sum of your monthly expenses and incomes"
