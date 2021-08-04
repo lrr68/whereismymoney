@@ -165,37 +165,6 @@ logmoneyreceived()
 	logtransaction "$AMOUNT" "$TRANSACTION_TYPE"
 }
 
-getbalanceint()
-{
-	TOTAL=0
-	answer=""
-	OLDIFS=$IFS
-	IFS=$'\n'
-
-	for expense in $(tail -n +2 "$BANKFILE")
-	do
-		echo "Count $expense? [Y/n]"
-		read -r answer
-
-		[ "$answer" = 'n' ] &&
-			continue
-
-		amount="${expense%,*}"
-		amount="${amount##*,}"
-
-		TOTAL=$(echo $TOTAL "$amount" | awk '{print $1 + $2}')
-		echo "total so far: $CURRENCY$TOTAL"
-	done
-	IFS=$OLDIFS
-
-	if [ "${TOTAL%.*}" -lt 0 ]
-	then
-		echo "You have a debt of -$CURRENCY${TOTAL#-}"
-	else
-		echo "You have $CURRENCY$TOTAL"
-	fi
-}
-
 getbalance()
 {
 	TOTAL=$(awk -F',' 'NR>1 {total+=$2;}END{print total;}' "$BANKFILE")
@@ -223,15 +192,10 @@ case "$1" in
 		addmonthly "$1" "$2" "$3"
 		;;
 	balance) shift
-		if [ "$1" = 'i' ]
-		then
-			getbalanceint
-		else
-			getbalance
-		fi
+		getbalance
 		;;
 	edit) shift
-		$EDITOR $BANKFILE
+		"$EDITOR $BANKFILE"
 		;;
 	fetch) shift
 		fetchemailtransactions
