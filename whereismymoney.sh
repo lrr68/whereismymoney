@@ -35,17 +35,31 @@ addmonthly()
 	[ ! "$TYPE" = "income" ] && [ ! "$TYPE" = "expense" ] &&
 			echo "Type not reconized. Valid types are 'income' or 'expense'" && return
 
+	#expenses are negative
+	if [ "$TYPE" = "income" ]
+	then
+		VALUE="${VALUE#-}"
+	else
+		VALUE="-${VALUE#-}"
+	fi
+
 	echo "$TYPE, $VALUE, $DESC" >> "$MONTHLY_TRANSACTIONS_FILE"
 }
 
 showmonthly()
 {
+	[ -e "$MONTHLY_TRANSACTIONS_FILE" ] ||
+		echo "$MONTHLY_HEADER" > "$MONTHLY_TRANSACTIONS_FILE"
+
 	column -s',' -t < "$MONTHLY_TRANSACTIONS_FILE"
 	showmonthlytotals
 }
 
 showmonthlytotals()
 {
+	[ -e "$MONTHLY_TRANSACTIONS_FILE" ] ||
+		echo "$MONTHLY_HEADER" > "$MONTHLY_TRANSACTIONS_FILE"
+
 	TOTAL_IN=$(awk -F',' 'NR>1 && $1 == "income" {total+=$2;}END{print total;}' "$MONTHLY_TRANSACTIONS_FILE")
 	TOTAL_EX=$(awk -F',' 'NR>1 && $1 == "expense" {total+=$2;}END{print total;}' "$MONTHLY_TRANSACTIONS_FILE")
 	[ "$TOTAL_IN" ] && echo "You receive $CURRENCY$TOTAL_IN every month."
