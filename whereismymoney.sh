@@ -4,67 +4,67 @@
 #-Keeps track of how much money you have by logging how much you spent and received.
 #-Money spent is saved as a negative value, while money received is saved as a positive value.
 
-BANKFILE="$HOME/Documents/.bank.csv"
-MONTHLY_TRANSACTIONS_FILE="$HOME/Documents/.monthly_transactions.csv"
-HEADER="date time,amount,transaction type"
-MONTHLY_HEADER="type, amount, description"
-DEFAULT_EXPENSE="basic expenses"
-DEFAULT_RECEIVE="paycheck"
-CURRENCY="R$"
+bankfile="$HOME/Documents/.bank.csv"
+monthly_transactions_file="$HOME/Documents/.monthly_transactions.csv"
+header="date time,amount,transaction type"
+monthly_header="type, amount, description"
+default_expense="basic expenses"
+default_receive="paycheck"
+currency="R$"
 
-#SUBJECT is used to filter emails that contain commands
-SUBJECT="Whereismymoney"
-#EMAIL is used to ssh to server and fetch remote commands
-EMAIL="sua@mae.com"
+#subject is used to filter emails that contain commands
+subject="Whereismymoney"
+#email is used to ssh to server and fetch remote commands
+email="sua@mae.com"
 
-DATE=""
+cur_date=""
 
 addmonthly()
 {
 	[ ! "$1" ] && echo "Inform type" && return
-	TYPE="$1"; shift
+	t_type="$1"; shift
 
 	[ ! "$1" ] && echo "Inform value" && return
-	VALUE="$1"; shift
+	value="$1"; shift
 
 	[ ! "$1" ] && echo "Inform description" && return
-	DESC="$1"; shift
+	description="$1"; shift
 
-	[ -e "$MONTHLY_TRANSACTIONS_FILE" ] || echo "$MONTHLY_HEADER" > "$MONTHLY_TRANSACTIONS_FILE"
+	[ -e "$monthly_transactions_file" ] || echo "$monthly_header" > "$monthly_transactions_file"
 
-	[ ! "$TYPE" = "income" ] && [ ! "$TYPE" = "expense" ] &&
+	[ ! "$t_type" = "income" ] && [ ! "$t_type" = "expense" ] &&
 			echo "Type not reconized. Valid types are 'income' or 'expense'" && return
 
 	#expenses are negative
-	if [ "$TYPE" = "income" ]
+	if [ "$t_type" = "income" ]
 	then
-		VALUE="${VALUE#-}"
+		value="${value#-}"
 	else
-		VALUE="-${VALUE#-}"
+		value="-${value#-}"
 	fi
 
-	echo "$TYPE,$VALUE,$DESC" >> "$MONTHLY_TRANSACTIONS_FILE"
+	echo "$t_type,$value,$description" >> "$monthly_transactions_file"
 }
 
 showmonthly()
 {
-	[ -e "$MONTHLY_TRANSACTIONS_FILE" ] ||
-		echo "$MONTHLY_HEADER" > "$MONTHLY_TRANSACTIONS_FILE"
+	[ -e "$monthly_transactions_file" ] ||
+		echo "$monthly_header" > "$monthly_transactions_file"
 
-	column -s',' -t < "$MONTHLY_TRANSACTIONS_FILE"
+	column -s',' -t < "$monthly_transactions_file"
 	showmonthlytotals
 }
 
 showmonthlytotals()
 {
-	[ -e "$MONTHLY_TRANSACTIONS_FILE" ] ||
-		echo "$MONTHLY_HEADER" > "$MONTHLY_TRANSACTIONS_FILE"
+	[ -e "$monthly_transactions_file" ] ||
+		echo "$monthly_header" > "$monthly_transactions_file"
 
-	TOTAL_IN=$(awk -F',' 'NR>1 && $1 == "income" {total+=$2;}END{print total;}' "$MONTHLY_TRANSACTIONS_FILE")
-	TOTAL_EX=$(awk -F',' 'NR>1 && $1 == "expense" {total+=$2;}END{print total;}' "$MONTHLY_TRANSACTIONS_FILE")
-	[ "$TOTAL_IN" ] && echo "You receive $CURRENCY$TOTAL_IN every month."
-	[ "$TOTAL_EX" ] && echo "You Spend $CURRENCY$TOTAL_EX every month."
-	[ ! "$TOTAL_EX" ] && [ ! "$TOTAL_IN" ] && echo "No Monthly expenses"
+	total_in=$(awk -F',' 'NR>1 && $1 == "income" {total+=$2;}END{print total;}' "$monthly_transactions_file")
+	total_ex=$(awk -F',' 'NR>1 && $1 == "expense" {total+=$2;}END{print total;}' "$monthly_transactions_file")
+	[ "$total_in" ] && echo "You receive $currency$total_in every month."
+	[ "$total_ex" ] && echo "You Spend $currency$total_ex every month."
+	[ ! "$total_ex" ] && [ ! "$total_in" ] && echo "No Monthly expenses"
 }
 
 fetchupdates()
@@ -75,11 +75,11 @@ fetchupdates()
 
 fetchmonthlytransactions()
 {
-	DATE=$(date "+%Y-%m-%d %H:%M")
-	cur_month=${DATE%-*}
+	cur_date=$(date "+%Y-%m-%d %H:%M")
+	cur_month=${cur_date%-*}
 	#also remove 0 so number is not treated as octal
 	cur_month=${cur_month#*-0}
-	last_month=$(tail -n 1 "$BANKFILE")
+	last_month=$(tail -n 1 "$bankfile")
 	last_month=${last_month%% *}
 	last_month=${last_month%-*}
 	#also remove 0 so number is not treated as octal
@@ -89,7 +89,7 @@ fetchmonthlytransactions()
 
 	while IFS= read -r transaction || [ -n "$transaction" ]
 	do
-		[ "$transaction" = "$MONTHLY_HEADER" ] && continue
+		[ "$transaction" = "$monthly_header" ] && continue
 
 		amount="${transaction#*,}"
 		amount="${amount%,*}"
@@ -100,69 +100,69 @@ fetchmonthlytransactions()
 		else
 			logmoneyspent "$amount" "${transaction##*,}"
 		fi
-	done < "$MONTHLY_TRANSACTIONS_FILE"
+	done < "$monthly_transactions_file"
 }
 
 fetchemailtransactions()
 {
-	STATE=0
-	CMD=""
-	AMOUNT=""
-	TYPE=""
-	BODY=""
+	state=0
+	cmd=""
+	amount=""
+	t_type=""
+	body=""
 	mailquery="${0##*/}.mailquery"
 
-	(ssh $EMAIL "doveadm fetch 'body date.received' mailbox inbox unseen SUBJECT $SUBJECT > mailquery &&
-		doveadm flags add '\Seen' mailbox inbox unseen SUBJECT $SUBJECT &&
-		doveadm move Trash mailbox inbox seen SUBJECT $SUBJECT &&
+	(ssh $email "doveadm fetch 'body date.received' mailbox inbox unseen subject $subject > mailquery &&
+		doveadm flags add '\Seen' mailbox inbox unseen subject $subject &&
+		doveadm move Trash mailbox inbox seen subject $subject &&
 		cat mailquery" > "$mailquery" 2>&1)
-	# query the server for unseen emails with subject=$SUBJECT
+	# query the server for unseen emails with subject=$subject
 	# outputs email body and date.received to a file so line breaks are preserved
 	# marks these emails as seen
 	# cats the file so we get it's contents locally
 	while IFS= read -r line || [ -n "$line" ]
 	do
-		case "$STATE" in
+		case "$state" in
 			0) #expect body
-				[ "${line%%:*}" = "body" ] && STATE=1
+				[ "${line%%:*}" = "body" ] && state=1
 				;;
 			1) #read until find spend or receive
 				#concatenate line for future error reporting
-				BODY="$BODY|$line"
+				body="$body|$line"
 				if [ "${line%% *}" = "Spend" ] ||
 					[ "${line%% *}" = "Receive" ]
 				then
-					STATE=2
-					CMD="${line%% *}"
-					AMOUNT="${line#* }"
-					AMOUNT="${AMOUNT%% *}"
-					TYPE="${line#* }"
-					TYPE="${TYPE#* }"
+					state=2
+					cmd="${line%% *}"
+					amount="${line#* }"
+					amount="${amount%% *}"
+					t_type="${line#* }"
+					t_type="${t_type#* }"
 				elif [ "${line%%:*}" = "date.received" ]
 				then
 					#read until date and did not get command, something is wrong with the email
 					{
 						echo "${0##*/} ERROR:"
 						echo "    Command not found in email"
-						echo "    BODY: $BODY"
+						echo "    body: $body"
 						echo "====Please do this one manually"
 					} >> "$HOME/.${0##*/}.log"
 
-					STATE=0
-					BODY=""
+					state=0
+					body=""
 				fi
 				;;
 			2) #read until find date.received
 				if [ "${line%%:*}" = "date.received" ]
 				then
-					DATE="${line#*: }"
-					#remove seconds to match BANKFILE FORMAT
-					DATE="${DATE%:*}"
-					[ "$CMD" = "Spend" ] && logmoneyspent "$AMOUNT" "$TYPE"
-					[ "$CMD" = "Receive" ] && logmoneyreceived "$AMOUNT" "$TYPE"
+					cur_date="${line#*: }"
+					#remove seconds to match bankfile FORMAT
+					cur_date="${cur_date%:*}"
+					[ "$cmd" = "Spend" ] && logmoneyspent "$amount" "$t_type"
+					[ "$cmd" = "Receive" ] && logmoneyreceived "$amount" "$t_type"
 					#Reset to read next
-					STATE=0
-					BODY=""
+					state=0
+					body=""
 				fi
 				;;
 		esac
@@ -181,61 +181,61 @@ logtransaction()
 	[ ! "$1" ] && echo "ERROR: Amount not informed" && return
 	[ ! "$2" ] && echo "ERROR: Transaction type not informed" && return
 
-	AMOUNT="$1"; shift
-	TRANSACTION_TYPE="$1"; shift
+	amount="$1"; shift
+	t_type="$1"; shift
 
-	echo "$DATE,$AMOUNT,$TRANSACTION_TYPE" >> "$BANKFILE"
+	echo "$cur_date,$amount,$t_type" >> "$bankfile"
 }
 
 logmoneyspent()
 {
 	[ ! "$1" ] && echo "ERROR: Amount not informed" && return
 
-	TRANSACTION_TYPE="$DEFAULT_EXPENSE"
-	AMOUNT="$1"; shift
+	t_type="$default_expense"
+	amount="$1"; shift
 	#make sure it's a negative
-	AMOUNT="-${AMOUNT#-}"
+	amount="-${amount#-}"
 
-	[ "$1" ] && TRANSACTION_TYPE="$1" && shift
+	[ "$1" ] && t_type="$1" && shift
 
-	logtransaction "$AMOUNT" "$TRANSACTION_TYPE"
+	logtransaction "$amount" "$t_type"
 }
 
 logmoneyreceived()
 {
 	[ ! "$1" ] && echo "ERROR: Amount not informed" && return
 
-	TRANSACTION_TYPE="$DEFAULT_RECEIVE"
-	AMOUNT="$1"; shift
+	t_type="$default_receive"
+	amount="$1"; shift
 	#make sure it's a positive
-	AMOUNT="${AMOUNT#-}"
+	amount="${amount#-}"
 
-	[ "$1" ] && TRANSACTION_TYPE="$1" && shift
+	[ "$1" ] && t_type="$1" && shift
 
-	logtransaction "$AMOUNT" "$TRANSACTION_TYPE"
+	logtransaction "$amount" "$t_type"
 }
 
 getbalance()
 {
-	TOTAL=$(awk -F',' 'NR>1 {total+=$2;}END{print total;}' "$BANKFILE")
+	total=$(awk -F',' 'NR>1 {total+=$2;}END{print total;}' "$bankfile")
 
-	if [ "${TOTAL%.*}" -lt 0 ]
+	if [ "${total%.*}" -lt 0 ]
 	then
-		echo "You have a debt of -$CURRENCY${TOTAL#-}"
+		echo "You have a debt of -$currency${total#-}"
 	else
-		echo "You have $CURRENCY$TOTAL"
+		echo "You have $currency$total"
 	fi
 }
 
 showbankfile()
 {
-	column -s',' -t < "$BANKFILE"
+	column -s',' -t < "$bankfile"
 	getbalance
 }
 
 #RUNNING
-[ -e "$BANKFILE" ] ||
-	echo "$HEADER" > "$BANKFILE"
+[ -e "$bankfile" ] ||
+	echo "$header" > "$bankfile"
 
 case "$1" in
 	add) shift
@@ -245,16 +245,16 @@ case "$1" in
 		getbalance
 		;;
 	edit) shift
-		"$EDITOR" "$BANKFILE"
+		"$EDITOR" "$bankfile"
 		;;
-	editmon) shift
-		"$EDITOR" "$MONTHLY_TRANSACTIONS_FILE"
+	editm) shift
+		"$EDITOR" "$monthly_transactions_file"
 		;;
 	fetch) shift
 		fetchupdates
 		;;
 	receive) shift
-		DATE=$(date "+%Y-%m-%d %H:%M")
+		cur_date=$(date "+%Y-%m-%d %H:%M")
 		logmoneyreceived "$1" "$2"
 		;;
 	show) shift
@@ -267,7 +267,7 @@ case "$1" in
 		showmonthlytotals
 		;;
 	spend) shift
-		DATE=$(date "+%Y-%m-%d %H:%M")
+		cur_date=$(date "+%Y-%m-%d %H:%M")
 		logmoneyspent "$1" "$2"
 		;;
 	*)
@@ -276,7 +276,7 @@ case "$1" in
 		echo "		add (income/expense) (number) (description): adds a montly expense or income,"
 		echo "			every month it will be put automatically on the csv file."
 		echo "		edit: Opens the bankfile with EDITOR"
-		echo "		editmon: Opens the monthly transactions file with EDITOR"
+		echo "		editm: Opens the monthly transactions file with EDITOR"
 		echo "		spend (number) [ type ]: Register an expense of number and type (if informed)"
 		echo "		receive (number) [ type ]: Register you received number and type (if informed)"
 		echo "		fetch: Fetches transactions registered by email and monthly transactions if due"
