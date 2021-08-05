@@ -77,17 +77,30 @@ fetchmonthlytransactions()
 {
 	DATE=$(date "+%Y-%m-%d %H:%M")
 	cur_month=${DATE%-*}
-	cur_month=${cur_month#*-}
+	#also remove 0 so number is not treated as octal
+	cur_month=${cur_month#*-0}
 	last_month=$(tail -n 1 "$BANKFILE")
 	last_month=${last_month%% *}
 	last_month=${last_month%-*}
-	last_month=${last_month#*-}
-	echo $last_month $MONTH
+	#also remove 0 so number is not treated as octal
+	last_month=${last_month#*-0}
 
-	if [ "$MONTH" -gt "$last_month" ]
-	then
-		echo ""
-	fi
+	[ ! "$cur_month" -gt "$last_month" ] && return
+
+	while IFS= read -r transaction || [ -n "$transaction" ]
+	do
+		[ "$transaction" = "$MONTHLY_HEADER" ] && continue
+
+		amount="${transaction#*,}"
+		amount="${amount%,*}"
+
+		if [ "${transaction%%,*}" = "income" ]
+		then
+			logmoneyreceived "$amount" "${transaction##*,}"
+		else
+			logmoneyspent "$amount" "${transaction##*,}"
+		fi
+	done < "$MONTHLY_TRANSACTIONS_FILE"
 }
 
 fetchemailtransactions()
