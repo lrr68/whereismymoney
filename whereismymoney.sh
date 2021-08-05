@@ -43,7 +43,7 @@ addmonthly()
 		VALUE="-${VALUE#-}"
 	fi
 
-	echo "$TYPE, $VALUE, $DESC" >> "$MONTHLY_TRANSACTIONS_FILE"
+	echo "$TYPE,$VALUE,$DESC" >> "$MONTHLY_TRANSACTIONS_FILE"
 }
 
 showmonthly()
