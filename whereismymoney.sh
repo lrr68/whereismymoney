@@ -263,6 +263,7 @@ case "$1" in
 		echo "		add (income/expense) (number) (description): adds a montly expense or income,"
 		echo "			every month it will be put automatically on the csv file."
 		echo "		edit: Opens the bankfile with EDITOR"
+		echo "		editmon: Opens the monthly transactions file with EDITOR"
 		echo "		spend (number) [ type ]: Register an expense of number and type (if informed)"
 		echo "		receive (number) [ type ]: Register you received number and type (if informed)"
 		echo "		fetch: Fetches transactions registered by email and monthly transactions if due"
