@@ -232,7 +232,10 @@ case "$1" in
 		getbalance
 		;;
 	edit) shift
-		"$EDITOR $BANKFILE"
+		"$EDITOR" "$BANKFILE"
+		;;
+	editmon) shift
+		"$EDITOR" "$MONTHLY_TRANSACTIONS_FILE"
 		;;
 	fetch) shift
 		fetchupdates
