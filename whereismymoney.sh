@@ -4,8 +4,8 @@
 #-Keeps track of how much money you have by logging how much you spent and received.
 #-Money spent is saved as a negative value, while money received is saved as a positive value.
 
-bankfile="$HOME/Documents/.bank.csv"
-monthly_transactions_file="$HOME/Documents/.monthly_transactions.csv"
+bankfile="$HOME/Documents/bank.csv"
+monthly_transactions_file="$HOME/Documents/monthly_transactions.csv"
 header="date time,amount,transaction type"
 monthly_header="type, amount, description"
 default_expense="basic expenses"
