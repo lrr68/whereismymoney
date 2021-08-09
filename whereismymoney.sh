@@ -69,13 +69,13 @@ showmonthlytotals()
 
 fetchupdates()
 {
+	cur_date=$(date "+%Y-%m-%d %H:%M")
 	fetchmonthlytransactions
 	fetchemailtransactions
 }
 
 fetchmonthlytransactions()
 {
-	cur_date=$(date "+%Y-%m-%d %H:%M")
 	cur_month=${cur_date%-*}
 	#also remove 0 so number is not treated as octal
 	cur_month=${cur_month#*-0}
@@ -112,10 +112,10 @@ fetchemailtransactions()
 	body=""
 	mailquery="${0##*/}.mailquery"
 
-	(ssh $email "doveadm fetch 'body date.received' mailbox inbox unseen subject $subject > mailquery &&
+	(ssh $email "doveadm fetch 'body date.received' mailbox inbox subject $subject > mailquery &&
 		doveadm flags add '\Seen' mailbox inbox unseen subject $subject &&
 		doveadm move Trash mailbox inbox seen subject $subject &&
-		cat mailquery" > "$mailquery" 2>&1)
+		cat mailquery" > "$mailquery")
 	# query the server for unseen emails with subject=$subject
 	# outputs email body and date.received to a file so line breaks are preserved
 	# marks these emails as seen
@@ -155,6 +155,7 @@ fetchemailtransactions()
 			2) #read until find date.received
 				if [ "${line%%:*}" = "date.received" ]
 				then
+					# change global date variable to email date so it's saved with the right timestamp
 					cur_date="${line#*: }"
 					#remove seconds to match bankfile FORMAT
 					cur_date="${cur_date%:*}"
