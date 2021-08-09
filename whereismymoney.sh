@@ -230,7 +230,18 @@ getbalance()
 
 showbankfile()
 {
-	column -s',' -t < "$bankfile"
+	cur_date=$(date "+%Y-%m-%d %H:%M")
+	cur_month=${cur_date%-*}
+	header_beginning=${header%%,*}
+
+	if [ "$1" = "full" ]
+	then
+		column -s',' -t < "$bankfile"
+	else
+		column -s',' -t < "$bankfile" |
+			grep -r "\(^$header_beginning\|^$cur_month\)" -
+	fi
+
 	getbalance
 }
 
@@ -259,7 +270,7 @@ case "$1" in
 		logmoneyreceived "$1" "$2"
 		;;
 	show) shift
-		showbankfile
+		showbankfile "$1"
 		;;
 	showm) shift
 		showmonthly
@@ -281,7 +292,8 @@ case "$1" in
 		echo "		spend (number) [ type ]: Register an expense of number and type (if informed)"
 		echo "		receive (number) [ type ]: Register you received number and type (if informed)"
 		echo "		fetch: Fetches transactions registered by email and monthly transactions if due"
-		echo "		show: Shows the bankfile"
+		echo "		show [full]: Shows the current month transactions. If 'full' is passed as argument,"
+		echo "          show the whole bankfile"
 		echo "		showm: Shows the monthly expenses file"
 		echo "		showmt: Shows the sum of your monthly expenses and incomes"
 		;;
