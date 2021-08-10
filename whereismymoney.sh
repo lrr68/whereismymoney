@@ -62,8 +62,8 @@ showmonthlytotals()
 
 	total_in=$(awk -F',' 'NR>1 && $1 == "income" {total+=$2;}END{print total;}' "$monthly_transactions_file")
 	total_ex=$(awk -F',' 'NR>1 && $1 == "expense" {total+=$2;}END{print total;}' "$monthly_transactions_file")
-	[ "$total_in" ] && echo "You receive $currency$total_in every month."
-	[ "$total_ex" ] && echo "You Spend $currency$total_ex every month."
+	[ "$total_in" ] && echo "You receive $currency${total_in#-} every month."
+	[ "$total_ex" ] && echo "You Spend $currency${total_ex#-} every month."
 	[ ! "$total_ex" ] && [ ! "$total_in" ] && echo "No Monthly expenses"
 }
 
