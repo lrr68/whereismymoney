@@ -69,6 +69,22 @@ showmonthlytotals()
 	[ ! "$total_ex" ] && [ ! "$total_in" ] && echo "No Monthly expenses"
 }
 
+showgroups()
+{
+	path="${bankfile%/*}"
+	path="$path/.${0##*/}*"
+
+	for group in $(ls $path)
+	do
+		groupname=${group#*.*.}
+		groupname=${groupname%.*}
+
+		echo "Expenses on: $groupname"
+		tail -n +2 $group
+		echo ""
+	done
+}
+
 fetchupdates()
 {
 	cur_date=$(date "+%Y-%m-%d %H:%M")
@@ -324,8 +340,8 @@ case "$arg" in
 	showm)
 		showmonthly
 		;;
-	showmt)
-		showmonthlytotals
+	showgroups)
+		showgroups
 		;;
 	spend)
 		cur_date=$(date "+%Y-%m-%d %H:%M")
@@ -346,6 +362,6 @@ case "$arg" in
 		echo "		show [full]: Shows the current month transactions. If 'full' is passed as argument,"
 		echo "          show the whole bankfile"
 		echo "		showm: Shows the monthly expenses file"
-		echo "		showmt: Shows the sum of your monthly expenses and incomes"
+		echo "		showgroups: Shows the transactions groups and their transactions"
 		;;
 esac
