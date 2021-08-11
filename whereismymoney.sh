@@ -7,9 +7,11 @@
 bankfile="$HOME/Documents/bank.csv"
 monthly_transactions_file="$HOME/Documents/monthly_transactions.csv"
 header="date time,amount,transaction type"
+group_header="amount,description"
 monthly_header="type, amount, description"
 default_expense="basic expenses"
 default_receive="paycheck"
+
 currency="R$"
 
 #subject is used to filter emails that contain commands
@@ -245,53 +247,102 @@ showbankfile()
 	getbalance
 }
 
+addgrouptransaction()
+{
+	group="$1"; shift
+	amount="$1"; shift
+	description="$1"; shift
+
+	[ ! "$group" ] || [ ! "$amount" ] || [ ! "$description" ] &&
+		echo "usage: ${0##*/} group (group name) ([-] number) (description)" &&
+		return
+
+	path="${bankfile%/*}"
+	groupfile="$path/.${0##*/}.$group.csv"
+	[ -e "$groupfile" ] ||
+		echo "$group_header" > "$groupfile"
+
+	echo "$amount,$description" >> "$groupfile"
+}
+
+loggrouptransactions()
+{
+	group="$1"; shift
+
+	[ ! "$group" ] &&
+		echo "usage: ${0##*/} log (group name)" &&
+		return
+
+	cur_date=$(date "+%Y-%m-%d %H:%M")
+
+	path="${bankfile%/*}"
+	groupfile="$path/.${0##*/}.$group.csv"
+	[ ! -e "$groupfile" ] && echo "group does not exist" && return
+
+	while IFS= read -r transaction || [ -n "$transaction" ]
+	do
+		[ "$transaction" = "$group_header" ] && continue
+
+		logtransaction "${transaction%,*}" "${transaction#*,}"
+	done < "$groupfile"
+}
+
 #RUNNING
 [ -e "$bankfile" ] ||
 	echo "$header" > "$bankfile"
 
-case "$1" in
-	add) shift
+arg="$1"; shift
+case "$arg" in
+	add)
 		addmonthly "$1" "$2" "$3"
 		;;
-	balance) shift
+	balance)
 		getbalance
 		;;
-	edit) shift
+	edit)
 		"$EDITOR" "$bankfile"
 		;;
-	editm) shift
+	editm)
 		"$EDITOR" "$monthly_transactions_file"
 		;;
-	fetch) shift
+	fetch)
 		fetchupdates
 		;;
-	receive) shift
+	group)
+		addgrouptransaction "$1" "$2" "$3"
+		;;
+	log)
+		loggrouptransactions "$1"
+		;;
+	receive)
 		cur_date=$(date "+%Y-%m-%d %H:%M")
 		logmoneyreceived "$1" "$2"
 		;;
-	show) shift
+	show)
 		showbankfile "$1"
 		;;
-	showm) shift
+	showm)
 		showmonthly
 		;;
-	showmt) shift
+	showmt)
 		showmonthlytotals
 		;;
-	spend) shift
+	spend)
 		cur_date=$(date "+%Y-%m-%d %H:%M")
 		logmoneyspent "$1" "$2"
 		;;
 	*)
 		echo "usage: ${0##*/} ( command )"
 		echo "commands:"
-		echo "		add (income/expense) (number) (description): adds a montly expense or income,"
+		echo "		add (income/expense) (number) (description): adds a monthly expense or income,"
 		echo "			every month it will be put automatically on the csv file."
+		echo "		group (group name) ([-|+] number) (description): adds a transaction to the specified group."
 		echo "		edit: Opens the bankfile with EDITOR"
 		echo "		editm: Opens the monthly transactions file with EDITOR"
-		echo "		spend (number) [ type ]: Register an expense of number and type (if informed)"
-		echo "		receive (number) [ type ]: Register you received number and type (if informed)"
 		echo "		fetch: Fetches transactions registered by email and monthly transactions if due"
+		echo "		log (group): updates the bankfile with the speficied group transactions."
+		echo "		receive (number) [ type ]: Register you received number and type (if informed)"
+		echo "		spend (number) [ type ]: Register an expense of number and type (if informed)"
 		echo "		show [full]: Shows the current month transactions. If 'full' is passed as argument,"
 		echo "          show the whole bankfile"
 		echo "		showm: Shows the monthly expenses file"
