@@ -309,6 +309,28 @@ loggrouptransactions()
 	done < "$groupfile"
 }
 
+showtypes()
+{
+	echo "Registered transaction types:"
+	awk -F',' '{print $4}' $bankfile | sort -u
+}
+
+showtypetotal()
+{
+	[ -z "$1" ] && echo "Type not informed" && return
+
+	t_type="$1"; shift
+
+	total="$(awk -F',' 'NR>1 && $4=="'"$t_type"'" {total+=$2;}END{print total}' "$bankfile")"
+
+	if [ "${total%%.*}" -lt 1 ]
+	then
+		echo "You spent $currency${total#-} with $t_type"
+	else
+		echo "You received $currency${total} with $t_type"
+	fi
+}
+
 #RUNNING
 [ -e "$bankfile" ] ||
 	echo "$header" > "$bankfile"
@@ -375,5 +397,7 @@ case "$arg" in
 		echo "          show the whole bankfile"
 		echo "		showm: Shows the monthly expenses file"
 		echo "		showgroups: Shows the transactions groups and their transactions"
+		echo "      showtypes: Shows the types of transactions you have registered"
+		echo "      showtypetotal (type): Shows the total of transactions of specified type"
 		;;
 esac
