@@ -124,10 +124,12 @@ fetchmonthlytransactions()
 fetchemailtransactions()
 {
 	state=0
+
 	cmd=""
+	body=""
 	amount=""
 	t_type=""
-	body=""
+	errfile="$HOME/.${0##*/}.log"
 	mailquery="${0##*/}.mailquery"
 
 	(ssh $email "doveadm fetch 'body date.received' mailbox inbox subject $subject > mailquery &&
@@ -164,7 +166,7 @@ fetchemailtransactions()
 						echo "    Command not found in email"
 						echo "    body: $body"
 						echo "====Please do this one manually"
-					} >> "$HOME/.${0##*/}.log"
+					} >> "$errfile"
 
 					state=0
 					body=""
@@ -189,54 +191,58 @@ fetchemailtransactions()
 	done < "$mailquery"
 	rm "$mailquery"
 
-	[ -e "$HOME/.${0##*/}.log" ] &&
-		sed 's/|/\n    /g' < "$HOME/.${0##*/}.log" > "$HOME/.${0##*/}.log.aux" &&
-		mv "$HOME/.${0##*/}.log.aux" "$HOME/.${0##*/}.log" &&
-		notify-send "${0##*/} ERROR" "There were errors processing email logged transactions. See $HOME/.${0##*/}.log"
+	[ -e "$errfile" ] &&
+		sed 's/|/\n    /g' < "$errfile" > "$errfile.aux" &&
+		mv "$errfile.aux" "$errfile" &&
+		notify-send "${0##*/} ERROR" "There were errors processing email logged transactions. See $errfile"
 }
 
 logtransaction()
 {
 	[ ! "$1" ] && echo "ERROR: Amount not informed" && return
-	[ ! "$2" ] && echo "ERROR: Transaction type not informed" && return
+	[ ! "$2" ] && echo "ERROR: Description not informed" && return
 
 	amount="$1"; shift
-	t_type="$1"; shift
+	description="$1"; shift
+	t_type=""
+	[ "$1" ] && t_type="$1" && shift
 
-	echo "$cur_date,$amount,$t_type" >> "$bankfile"
+	echo "$cur_date,$amount,$description,$t_type" >> "$bankfile"
 }
 
 logmoneyspent()
 {
 	[ ! "$1" ] && echo "ERROR: Amount not informed" && return
 
-	t_type="$default_expense"
+	description="$default_expense"
 	amount="$1"; shift
 	#make sure it's a negative
 	amount="-${amount#-}"
 
+	[ "$1" ] && description="$1" && shift
 	[ "$1" ] && t_type="$1" && shift
 
-	logtransaction "$amount" "$t_type"
+	logtransaction "$amount" "$description" "$t_type"
 }
 
 logmoneyreceived()
 {
 	[ ! "$1" ] && echo "ERROR: Amount not informed" && return
 
-	t_type="$default_receive"
+	description="$default_receive"
 	amount="$1"; shift
 	#make sure it's a positive
 	amount="${amount#-}"
 
+	[ "$1" ] && description="$1" && shift
 	[ "$1" ] && t_type="$1" && shift
 
-	logtransaction "$amount" "$t_type"
+	logtransaction "$amount" "$description" "$t_type"
 }
 
 getbalance()
 {
-	total=$(awk -F',' 'NR>1 {total+=$2;}END{print total;}' "$bankfile")
+	total=$(awk -F',' 'NR>1 {total+=$2;}END{print total}' "$bankfile")
 
 	if [ "${total%.*}" -lt 0 ]
 	then
@@ -332,7 +338,7 @@ case "$arg" in
 		;;
 	receive)
 		cur_date=$(date "+%Y-%m-%d %H:%M")
-		logmoneyreceived "$1" "$2"
+		logmoneyreceived "$1" "$2" "$3"
 		;;
 	show)
 		showbankfile "$1"
@@ -343,9 +349,15 @@ case "$arg" in
 	showgroups)
 		showgroups
 		;;
+	showtypes)
+		showtypes
+		;;
+	showtypetotal)
+		showtypetotal "$1"
+		;;
 	spend)
 		cur_date=$(date "+%Y-%m-%d %H:%M")
-		logmoneyspent "$1" "$2"
+		logmoneyspent "$1" "$2" "$3"
 		;;
 	*)
 		echo "usage: ${0##*/} ( command )"
