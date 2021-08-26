@@ -11,6 +11,7 @@ group_header="amount,description"
 monthly_header="type, amount, description"
 default_expense="basic expenses"
 default_receive="paycheck"
+default_receive_type="paycheck"
 
 currency="R$"
 
@@ -129,13 +130,15 @@ fetchemailtransactions()
 	body=""
 	amount=""
 	t_type=""
+	description=""
 	errfile="$HOME/.${0##*/}.log"
 	mailquery="${0##*/}.mailquery"
 
-	(ssh $email "doveadm fetch 'body date.received' mailbox inbox subject $subject > mailquery &&
+	ssh $email "doveadm fetch 'body date.received' mailbox inbox subject $subject > mailquery &&
 		doveadm flags add '\Seen' mailbox inbox unseen subject $subject &&
 		doveadm move Trash mailbox inbox seen subject $subject &&
-		cat mailquery" > "$mailquery")
+		doveadm move Trash mailbox Sent subject $subject &&
+		cat mailquery" > "$mailquery"
 	# query the server for unseen emails with subject=$subject
 	# outputs email body and date.received to a file so line breaks are preserved
 	# marks these emails as seen
@@ -156,8 +159,11 @@ fetchemailtransactions()
 					cmd="${line%% *}"
 					amount="${line#* }"
 					amount="${amount%% *}"
-					t_type="${line#* }"
-					t_type="${t_type#* }"
+					description="${line#* }"
+					description="${description#* }"
+					description="${description%,*}"
+					t_type="$(echo $line | awk -F',' '{print $2}')"
+					t_type="${t_type# }"
 				elif [ "${line%%:*}" = "date.received" ]
 				then
 					#read until date and did not get command, something is wrong with the email
@@ -179,8 +185,9 @@ fetchemailtransactions()
 					cur_date="${line#*: }"
 					#remove seconds to match bankfile FORMAT
 					cur_date="${cur_date%:*}"
-					[ "$cmd" = "Spend" ] && logmoneyspent "$amount" "$t_type"
-					[ "$cmd" = "Receive" ] && logmoneyreceived "$amount" "$t_type"
+					[ "$cmd" = "Spend" ] && logmoneyspent "$amount" "$description" "$t_type"
+					[ "$cmd" = "Receive" ] && logmoneyreceived "$amount" "$description" "$t_type"
+
 					#Reset to read next
 					state=0
 					body=""
@@ -215,6 +222,7 @@ logmoneyspent()
 	[ ! "$1" ] && echo "ERROR: Amount not informed" && return
 
 	description="$default_expense"
+	t_type="$default_expense_type"
 	amount="$1"; shift
 	#make sure it's a negative
 	amount="-${amount#-}"
@@ -230,6 +238,7 @@ logmoneyreceived()
 	[ ! "$1" ] && echo "ERROR: Amount not informed" && return
 
 	description="$default_receive"
+	t_type="$default_receive_type"
 	amount="$1"; shift
 	#make sure it's a positive
 	amount="${amount#-}"
@@ -305,14 +314,14 @@ loggrouptransactions()
 	do
 		[ "$transaction" = "$group_header" ] && continue
 
-		logtransaction "${transaction%,*}" "${transaction#*,}"
+		logtransaction "${transaction%,*}" "${transaction#*,}" "$group"
 	done < "$groupfile"
 }
 
 showtypes()
 {
 	echo "Registered transaction types:"
-	awk -F',' '{print $4}' $bankfile | sort -u
+	awk -F',' 'NR>1 {print "\t+ "$4}' $bankfile | sort -u
 }
 
 showtypetotal()
