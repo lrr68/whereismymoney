@@ -340,6 +340,15 @@ showtypetotal()
 	fi
 }
 
+editfile()
+{
+	file="$bankfile"
+
+	[ "$1" ] && path="${bankfile%/*}" && file="$path/.${0##*/}.$1.csv"
+
+	"$EDITOR" "$file"
+}
+
 #RUNNING
 [ -e "$bankfile" ] ||
 	echo "$header" > "$bankfile"
@@ -353,7 +362,7 @@ case "$arg" in
 		getbalance
 		;;
 	edit)
-		"$EDITOR" "$bankfile"
+		editfile "$1"
 		;;
 	editm)
 		"$EDITOR" "$monthly_transactions_file"
