@@ -11,6 +11,7 @@ group_header="amount,description"
 monthly_header="type, amount, description"
 default_expense="basic expenses"
 default_receive="paycheck"
+default_expense_type="general"
 default_receive_type="paycheck"
 
 currency="R$"
@@ -82,8 +83,21 @@ showgroups()
 
 		echo "Expenses on: $groupname"
 		tail -n +2 $group
+		total="$(awk -F',' 'NR>1 {total+=$1;}END{print total}' "$group")"
+		echo "Total: $currency${total#-}"
 		echo ""
 	done
+}
+
+filtertransactions()
+{
+	[ -z "$1" ] && echo "(string) is missing" && echo "usage: ${0##*/} filter (string)"
+
+	column -s',' -t < "$bankfile" |
+		grep -r "\(^${header%%,*}\|$1\)" -
+
+	total="$(grep "$1" "$bankfile" | awk -F',' '{total+= $2}END{print total}')"
+	echo "total: $currency$total"
 }
 
 fetchupdates()
@@ -251,6 +265,9 @@ logmoneyreceived()
 
 getbalance()
 {
+
+	[ "$1" == "full" ] && file=""
+
 	total=$(awk -F',' 'NR>1 {total+=$2;}END{print total}' "$bankfile")
 
 	if [ "${total%.*}" -lt 0 ]
@@ -313,8 +330,12 @@ loggrouptransactions()
 	while IFS= read -r transaction || [ -n "$transaction" ]
 	do
 		[ "$transaction" = "$group_header" ] && continue
+		amount=${transaction%%,*}
+		desc=${transaction#*,}
+		desc=${desc%,*}
+		type=${transaction##*,}
 
-		logtransaction "${transaction%,*}" "${transaction#*,}" "$group"
+		logtransaction "$amount" "$desc" "$type"
 	done < "$groupfile"
 }
 
@@ -353,7 +374,7 @@ editfile()
 [ -e "$bankfile" ] ||
 	echo "$header" > "$bankfile"
 
-arg="$1"; shift
+[ "$1" ] && arg="$1" && shift
 case "$arg" in
 	add)
 		addmonthly "$1" "$2" "$3"
@@ -366,6 +387,9 @@ case "$arg" in
 		;;
 	editm)
 		"$EDITOR" "$monthly_transactions_file"
+		;;
+	filter)
+		filtertransactions "$1"
 		;;
 	fetch)
 		fetchupdates
@@ -408,6 +432,7 @@ case "$arg" in
 		echo "		edit: Opens the bankfile with EDITOR"
 		echo "		editm: Opens the monthly transactions file with EDITOR"
 		echo "		fetch: Fetches transactions registered by email and monthly transactions if due"
+		echo "		filter (string): Lists expenses containing (string)"
 		echo "		log (group): updates the bankfile with the speficied group transactions."
 		echo "		receive (number) [ type ]: Register you received number and type (if informed)"
 		echo "		spend (number) [ type ]: Register an expense of number and type (if informed)"
@@ -415,7 +440,7 @@ case "$arg" in
 		echo "          show the whole bankfile"
 		echo "		showm: Shows the monthly expenses file"
 		echo "		showgroups: Shows the transactions groups and their transactions"
-		echo "      showtypes: Shows the types of transactions you have registered"
-		echo "      showtypetotal (type): Shows the total of transactions of specified type"
+		echo "		showtypes: Shows the types of transactions you have registered"
+		echo "		showtypetotal (type): Shows the total of transactions of specified type"
 		;;
 esac
