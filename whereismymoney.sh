@@ -6,12 +6,13 @@
 
 bankfile="$HOME/Documents/bank.csv"
 monthly_transactions_file="$HOME/Documents/monthly_transactions.csv"
+investments_file="$REPOS/personalspace/investments.csv"
 header="date time,amount,transaction type"
 group_header="amount,description"
 monthly_header="type, amount, description"
+investment_header="date,amount,description"
 default_expense="basic expenses"
 default_receive="paycheck"
-default_expense_type="general"
 default_receive_type="paycheck"
 
 currency="R$"
@@ -268,13 +269,18 @@ getbalance()
 
 	[ "$1" == "full" ] && file=""
 
-	total=$(awk -F',' 'NR>1 {total+=$2;}END{print total}' "$bankfile")
+	total="$(awk -F',' 'NR>1 {total+=$2;}END{print total}' "$bankfile")"
+	invested="$(awk -F',' 'NR>1 {invested+=$2;}END{print invested}' "$investments_file")"
+	[ -z "$invested" ] && invested=0
 
 	if [ "${total%.*}" -lt 0 ]
 	then
 		echo "You have a debt of -$currency${total#-}"
+		[ "$invested" -gt 0 ] &&
+			echo "Use your investment of $currency$invested to pay some of it"
 	else
-		echo "You have $currency$total"
+		echo "You have $currency$total, of which $currency$invested is invested"
+		echo "Usable total: $currency$(python -c "print('{:.2f}'.format($total - $invested))" )"
 	fi
 }
 
@@ -339,6 +345,22 @@ loggrouptransactions()
 	done < "$groupfile"
 }
 
+loginvestment()
+{
+	investment="$1"
+	description="$2"
+
+	if [ -z "$1" ] || [ -z "$2" ]
+	then
+		echo "usage: ${0##*/} loginvestment (amount) (description)"
+		return
+	fi
+
+	[ -e "$investments_file" ] || echo "$investment_header" > "$investments_file"
+
+	echo "$cur_date,$investment,$description" >> "$investments_file"
+}
+
 showtypes()
 {
 	echo "Registered transaction types:"
@@ -365,7 +387,12 @@ editfile()
 {
 	file="$bankfile"
 
-	[ "$1" ] && path="${bankfile%/*}" && file="$path/.${0##*/}.$1.csv"
+	if [ "$1" = "invest" ]
+	then
+			file="$investments_file"
+	else
+		[ "$1" ] && path="${bankfile%/*}" && file="$path/.${0##*/}.$1.csv"
+	fi
 
 	"$EDITOR" "$file"
 }
@@ -393,6 +420,10 @@ case "$arg" in
 		;;
 	fetch)
 		fetchupdates
+		;;
+	invest)
+		cur_date=$(date "+%Y-%m-%d %H:%M")
+		loginvestment "$1" "$2"
 		;;
 	group)
 		addgrouptransaction "$1" "$2" "$3"
@@ -427,12 +458,13 @@ case "$arg" in
 		echo "usage: ${0##*/} ( command )"
 		echo "commands:"
 		echo "		add (income/expense) (number) (description): adds a monthly expense or income,"
-		echo "			every month it will be put automatically on the csv file."
-		echo "		group (group name) ([-|+] number) (description): adds a transaction to the specified group."
+		echo "			every month it will be put automatically on the csv file"
 		echo "		edit: Opens the bankfile with EDITOR"
 		echo "		editm: Opens the monthly transactions file with EDITOR"
 		echo "		fetch: Fetches transactions registered by email and monthly transactions if due"
 		echo "		filter (string): Lists expenses containing (string)"
+		echo "		group (group name) ([-|+] number) (description): adds a transaction to the specified group"
+		echo "		invest (amount)  (description): logs an investment"
 		echo "		log (group): updates the bankfile with the speficied group transactions."
 		echo "		receive (number) [ type ]: Register you received number and type (if informed)"
 		echo "		spend (number) [ type ]: Register an expense of number and type (if informed)"
