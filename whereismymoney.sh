@@ -361,6 +361,40 @@ loginvestment()
 	echo "$cur_date,$investment,$description" >> "$investments_file"
 }
 
+showwrapper()
+{
+	case "$1" in
+		invested)
+			showinvestments
+			;;
+		monthly)
+			showmonthly
+			;;
+		groups)
+			showgroups
+			;;
+		types)
+			showtypes
+			;;
+		typetotal)
+			showtypetotal "$2"
+			;;
+		full)
+			showbankfile "full"
+			;;
+		*)
+			showbankfile
+			;;
+	esac
+}
+
+showinvestments()
+{
+	column -s',' -t < "$investments_file"
+	total="$(awk -F',' 'NR>1 {total+=$2}END{print total}' "$investments_file")"
+	echo "Total invested: $currency$total"
+}
+
 showtypes()
 {
 	echo "Registered transaction types:"
@@ -436,19 +470,7 @@ case "$arg" in
 		logmoneyreceived "$1" "$2" "$3"
 		;;
 	show)
-		showbankfile "$1"
-		;;
-	showm)
-		showmonthly
-		;;
-	showgroups)
-		showgroups
-		;;
-	showtypes)
-		showtypes
-		;;
-	showtypetotal)
-		showtypetotal "$1"
+		showwrapper "$1" "$2"
 		;;
 	spend)
 		cur_date=$(date "+%Y-%m-%d %H:%M")
@@ -468,11 +490,6 @@ case "$arg" in
 		echo "		log (group): updates the bankfile with the speficied group transactions."
 		echo "		receive (number) [ type ]: Register you received number and type (if informed)"
 		echo "		spend (number) [ type ]: Register an expense of number and type (if informed)"
-		echo "		show [full]: Shows the current month transactions. If 'full' is passed as argument,"
-		echo "          show the whole bankfile"
-		echo "		showm: Shows the monthly expenses file"
-		echo "		showgroups: Shows the transactions groups and their transactions"
-		echo "		showtypes: Shows the types of transactions you have registered"
-		echo "		showtypetotal (type): Shows the total of transactions of specified type"
+		echo "		show [ full/monthly/groups/types/typetotal (type)/invested ]: shows data from the bank file filtered"
 		;;
 esac
