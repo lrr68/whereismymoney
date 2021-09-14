@@ -352,13 +352,29 @@ loginvestment()
 
 	if [ -z "$1" ] || [ -z "$2" ]
 	then
-		echo "usage: ${0##*/} loginvestment (amount) (description)"
+		echo "usage: ${0##*/} invest (amount) (description)"
 		return
 	fi
 
 	[ -e "$investments_file" ] || echo "$investment_header" > "$investments_file"
 
 	echo "$cur_date,$investment,$description" >> "$investments_file"
+}
+
+uninvest()
+{
+	withdraw="$1"
+	description="$2"
+	if [ -z "$1" ] || [ -z "$2" ]
+	then
+		echo "usage: ${0##*/} uninvest (amount) (description)"
+		return
+	fi
+
+	[ ! -e "$investments_file" ] && echo "Error: Investments file not found" && return
+
+	echo "$cur_date,-${withdraw#-},$description" >> "$investments_file"
+	logmoneyreceived "$cur_date" "${withdraw#-}" "$description"
 }
 
 showwrapper()
@@ -487,8 +503,9 @@ case "$arg" in
 		echo "		filter (string): Lists expenses containing (string)"
 		echo "		group (group name) ([-|+] number) (description): adds a transaction to the specified group"
 		echo "		invest (amount)  (description): logs an investment"
+		echo "		uninvest (amount)  (description): withdraw from investments"
 		echo "		log (group): updates the bankfile with the speficied group transactions."
-		echo "		receive (number) [ type ]: Register you received number and type (if informed)"
+		echo "		receive (number) [ type ] [ tag ]: Register you received (number) of (type) of tag (tag)"
 		echo "		spend (number) [ type ]: Register an expense of number and type (if informed)"
 		echo "		show [ full/monthly/groups/types/typetotal (type)/invested ]: shows data from the bank file filtered"
 		;;
