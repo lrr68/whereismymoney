@@ -104,37 +104,7 @@ filtertransactions()
 fetchupdates()
 {
 	cur_date=$(date "+%Y-%m-%d %H:%M")
-	fetchmonthlytransactions
 	fetchemailtransactions
-}
-
-fetchmonthlytransactions()
-{
-	cur_month=${cur_date%-*}
-	#also remove 0 so number is not treated as octal
-	cur_month=${cur_month#*-0}
-	last_month=$(tail -n 1 "$bankfile")
-	last_month=${last_month%% *}
-	last_month=${last_month%-*}
-	#also remove 0 so number is not treated as octal
-	last_month=${last_month#*-0}
-
-	[ ! "$cur_month" -gt "$last_month" ] && return
-
-	while IFS= read -r transaction || [ -n "$transaction" ]
-	do
-		[ "$transaction" = "$monthly_header" ] && continue
-
-		amount="${transaction#*,}"
-		amount="${amount%,*}"
-
-		if [ "${transaction%%,*}" = "income" ]
-		then
-			logmoneyreceived "$amount" "${transaction##*,}"
-		else
-			logmoneyspent "$amount" "${transaction##*,}"
-		fi
-	done < "$monthly_transactions_file"
 }
 
 fetchemailtransactions()
@@ -306,8 +276,9 @@ addgrouptransaction()
 	group="$1"; shift
 	amount="$1"; shift
 	description="$1"; shift
+	tag="$1"; shift
 
-	[ ! "$group" ] || [ ! "$amount" ] || [ ! "$description" ] &&
+	[ ! "$group" ] || [ ! "$amount" ] || [ ! "$description" ] || [ ! "$tag" ] &&
 		echo "usage: ${0##*/} group (group name) ([-] number) (description)" &&
 		return
 
@@ -383,9 +354,6 @@ showwrapper()
 		invested)
 			showinvestments
 			;;
-		monthly)
-			showmonthly
-			;;
 		groups)
 			showgroups
 			;;
@@ -453,17 +421,11 @@ editfile()
 
 [ "$1" ] && arg="$1" && shift
 case "$arg" in
-	add)
-		addmonthly "$1" "$2" "$3"
-		;;
 	balance)
 		getbalance
 		;;
 	edit)
 		editfile "$1"
-		;;
-	editm)
-		"$EDITOR" "$monthly_transactions_file"
 		;;
 	filter)
 		filtertransactions "$1"
@@ -476,7 +438,7 @@ case "$arg" in
 		loginvestment "$1" "$2"
 		;;
 	group)
-		addgrouptransaction "$1" "$2" "$3"
+		addgrouptransaction "$1" "$2" "$3" "$4"
 		;;
 	log)
 		loggrouptransactions "$1"
@@ -495,18 +457,15 @@ case "$arg" in
 	*)
 		echo "usage: ${0##*/} ( command )"
 		echo "commands:"
-		echo "		add (income/expense) (number) (description): adds a monthly expense or income,"
-		echo "			every month it will be put automatically on the csv file"
 		echo "		edit: Opens the bankfile with EDITOR"
-		echo "		editm: Opens the monthly transactions file with EDITOR"
-		echo "		fetch: Fetches transactions registered by email and monthly transactions if due"
+		echo "		fetch: Fetches transactions registered by email"
 		echo "		filter (string): Lists expenses containing (string)"
-		echo "		group (group name) ([-|+] number) (description): adds a transaction to the specified group"
+		echo "		group (group name) ([-|+] number) (description) (tag): adds a transaction to the specified group"
 		echo "		invest (amount)  (description): logs an investment"
 		echo "		uninvest (amount)  (description): withdraw from investments"
 		echo "		log (group): updates the bankfile with the speficied group transactions."
 		echo "		receive (number) [ type ] [ tag ]: Register you received (number) of (type) of tag (tag)"
 		echo "		spend (number) [ type ]: Register an expense of number and type (if informed)"
-		echo "		show [ full/monthly/groups/types/typetotal (type)/invested ]: shows data from the bank file filtered"
+		echo "		show [ full/groups/types/typetotal (type)/invested ]: shows data from the bank file filtered"
 		;;
 esac
