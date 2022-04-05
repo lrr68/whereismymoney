@@ -8,12 +8,12 @@ bankfile="$HOME/Documents/bank.csv"
 monthly_transactions_file="$HOME/Documents/monthly_transactions.csv"
 investments_file="$REPOS/personalspace/investments.csv"
 header="date time,amount,transaction type"
-group_header="amount,description"
+group_header="amount,description,type"
 monthly_header="type, amount, description"
 investment_header="date,amount,description"
 default_expense="basic expenses"
 default_receive="paycheck"
-default_receive_type="paycheck"
+default_receive_type="general"
 
 currency="R$"
 
@@ -279,7 +279,7 @@ addgrouptransaction()
 	tag="$1"; shift
 
 	[ ! "$group" ] || [ ! "$amount" ] || [ ! "$description" ] || [ ! "$tag" ] &&
-		echo "usage: ${0##*/} group (group name) ([-] number) (description)" &&
+		echo "usage: ${0##*/} group (group name) ([-] number) (description) (tag)" &&
 		return
 
 	path="${bankfile%/*}"
@@ -287,7 +287,7 @@ addgrouptransaction()
 	[ -e "$groupfile" ] ||
 		echo "$group_header" > "$groupfile"
 
-	echo "$amount,$description" >> "$groupfile"
+	echo "$amount,$description,$tag" >> "$groupfile"
 }
 
 loggrouptransactions()
@@ -314,6 +314,9 @@ loggrouptransactions()
 
 		logtransaction "$amount" "$desc" "$type"
 	done < "$groupfile"
+
+	#clear groupfile
+	echo "$group_header" > "$groupfile"
 }
 
 loginvestment()
@@ -345,7 +348,6 @@ uninvest()
 	[ ! -e "$investments_file" ] && echo "Error: Investments file not found" && return
 
 	echo "$cur_date,-${withdraw#-},$description" >> "$investments_file"
-	logmoneyreceived "$cur_date" "${withdraw#-}" "$description"
 }
 
 showwrapper()
@@ -436,6 +438,10 @@ case "$arg" in
 	invest)
 		cur_date=$(date "+%Y-%m-%d %H:%M")
 		loginvestment "$1" "$2"
+		;;
+	uninvest)
+		cur_date=$(date "+%Y-%m-%d %H:%M")
+		uninvest "$1" "$2"
 		;;
 	group)
 		addgrouptransaction "$1" "$2" "$3" "$4"
