@@ -8,7 +8,7 @@ bankfile="$HOME/Documents/bank.csv"
 monthly_transactions_file="$HOME/Documents/monthly_transactions.csv"
 investments_file="$REPOS/personalspace/investments.csv"
 header="date time,amount,transaction type"
-group_header="amount,description,type"
+group_header="date time,amount,description,type"
 monthly_header="type, amount, description"
 investment_header="date,amount,description"
 default_expense="basic expenses"
@@ -198,6 +198,7 @@ logtransaction()
 	description="$1"; shift
 	t_type=""
 	[ "$1" ] && t_type="$1" && shift
+	[ "$1" ] && cur_date="$1" && shift
 
 	echo "$cur_date,$amount,$description,$t_type" >> "$bankfile"
 }
@@ -277,6 +278,7 @@ addgrouptransaction()
 	amount="$1"; shift
 	description="$1"; shift
 	tag="$1"; shift
+	cur_date=$(date "+%Y-%m-%d %H:%M")
 
 	[ ! "$group" ] || [ ! "$amount" ] || [ ! "$description" ] || [ ! "$tag" ] &&
 		echo "usage: ${0##*/} group (group name) ([-] number) (description) (tag)" &&
@@ -287,7 +289,7 @@ addgrouptransaction()
 	[ -e "$groupfile" ] ||
 		echo "$group_header" > "$groupfile"
 
-	echo "$amount,$description,$tag" >> "$groupfile"
+	echo "$cur_date,$amount,$description,$tag" >> "$groupfile"
 }
 
 loggrouptransactions()
@@ -307,12 +309,14 @@ loggrouptransactions()
 	while IFS= read -r transaction || [ -n "$transaction" ]
 	do
 		[ "$transaction" = "$group_header" ] && continue
-		amount=${transaction%%,*}
-		desc=${transaction#*,}
-		desc=${desc%,*}
+		transaction_date=${transaction%%,*}
+		amount=${transaction#*,}
+		amount=${amount%%,*}
+		desc=${transaction%,*}
+		desc=${desc##*,}
 		type=${transaction##*,}
 
-		logtransaction "$amount" "$desc" "$type"
+		logtransaction "$amount" "$desc" "$type" "$transaction_date"
 	done < "$groupfile"
 
 	#clear groupfile
