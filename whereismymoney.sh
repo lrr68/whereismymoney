@@ -107,6 +107,38 @@ fetchupdates()
 	fetchemailtransactions
 }
 
+get_email_date()
+{
+	mailquery="$1"
+	email_date=""
+
+	#get date time
+	line="$(tail -n 1 "$mailquery")"
+	if [ "${line%%:*}" = "date.sent" ]
+	then
+		# change global date variable to email date so it's saved with the right timestamp
+		email_date_time="${line#*: }"
+	fi
+
+	#roughly convert date time from utc to correct timezone
+	timezone_diff=${email_date_time##*(}
+	timezone_diff=${timezone_diff%)}
+	operation=${timezone_diff:0:1}
+	timezone_diff=${timezone_diff:1}
+	timezone_diff_in_seconds=$((timezone_diff * 60))
+
+	seconds_from_epoch="$(date -d "$email_date_time" +%s)"
+
+	if [ "$operation" = '-' ]
+	then
+		email_date=$(date -d "@$((seconds_from_epoch - timezone_diff_in_seconds))" "+%Y-%m-%d %H:%M")
+	else
+		email_date=$(date -d "@$((seconds_from_epoch + timezone_diff_in_seconds))" "+%Y-%m-%d %H:%M")
+	fi
+
+	echo "$email_date"
+}
+
 fetchemailtransactions()
 {
 	state=0
@@ -118,16 +150,19 @@ fetchemailtransactions()
 	description=""
 	errfile="$HOME/.${0##*/}.log"
 	mailquery="${0##*/}.mailquery"
+	has_command=0
 
-	ssh $email "doveadm fetch 'body date.received' mailbox inbox subject $subject > mailquery &&
+	# query the server for unseen emails with subject=$subject
+	# outputs email body and date.sent to a file so line breaks are preserved
+	# marks these emails as seen
+	# cats the file so we get it's contents locally
+	ssh $email "doveadm fetch 'body date.sent' mailbox inbox subject $subject > mailquery &&
 		doveadm flags add '\Seen' mailbox inbox unseen subject $subject &&
 		doveadm move Trash mailbox inbox seen subject $subject &&
 		doveadm move Trash mailbox Sent subject $subject &&
 		cat mailquery" > "$mailquery"
-	# query the server for unseen emails with subject=$subject
-	# outputs email body and date.received to a file so line breaks are preserved
-	# marks these emails as seen
-	# cats the file so we get it's contents locally
+
+	cur_date="$(get_email_date "$mailquery")"
 	while IFS= read -r line || [ -n "$line" ]
 	do
 		case "$state" in
@@ -140,7 +175,7 @@ fetchemailtransactions()
 				if [ "${line%% *}" = "Spend" ] ||
 					[ "${line%% *}" = "Receive" ]
 				then
-					state=2
+					has_command=1
 					cmd="${line%% *}"
 					amount="${line#* }"
 					amount="${amount%% *}"
@@ -149,31 +184,21 @@ fetchemailtransactions()
 					description="${description%,*}"
 					t_type="$(echo $line | awk -F',' '{print $2}')"
 					t_type="${t_type# }"
-				elif [ "${line%%:*}" = "date.received" ]
-				then
-					#read until date and did not get command, something is wrong with the email
-					{
-						echo "${0##*/} ERROR:"
-						echo "    Command not found in email"
-						echo "    body: $body"
-						echo "====Please do this one manually"
-					} >> "$errfile"
 
-					state=0
-					body=""
-				fi
-				;;
-			2) #read until find date.received
-				if [ "${line%%:*}" = "date.received" ]
-				then
-					# change global date variable to email date so it's saved with the right timestamp
-					cur_date="${line#*: }"
-					#remove seconds to match bankfile FORMAT
-					cur_date="${cur_date%:*}"
 					[ "$cmd" = "Spend" ] && logmoneyspent "$amount" "$description" "$t_type"
 					[ "$cmd" = "Receive" ] && logmoneyreceived "$amount" "$description" "$t_type"
 
-					#Reset to read next
+				elif [ "${line%%:*}" = "date.sent" ]
+				then
+					[ "$has_command" ] ||
+						#read until date and did not get command, something is wrong with the email
+						{
+							echo "${0##*/} ERROR:"
+							echo "    Command not found in email"
+							echo "    body: $body"
+							echo "====Please do this one manually"
+						} >> "$errfile"
+
 					state=0
 					body=""
 				fi
