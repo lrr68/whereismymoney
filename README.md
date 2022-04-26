@@ -8,7 +8,7 @@ Money spent is saved as a negative value, while money received is saved as a pos
 I advise you put this script in a place you PATH can reach so you can just run ```whereismymoney ( command )```
 
 ### commands:
-####: add (income/expense) (number) (description):
+#### add (income/expense) (number) (description):
 	adds a monthly expense or income, every month it will be put automatically on the csv file.
 #### edit [ group ]:
 	Opens the bankfile or group file with EDITOR.
